@@ -8,15 +8,24 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-import { getNotes } from "../services/note-service";
+import {
+  getNotes,
+  addNote,
+  deleteNote,
+  updateNote,
+} from "../services/noteService";
 import NoteItem from "../components/NoteItem";
 import AddNoteModal from "../components/AddNoteModal";
+import { AuthContext } from "../context/AuthContext";
 
 const NotesScreen = () => {
   const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+   const [isLoading, setIsLoading] = useState(true);  
   const [error, setError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+   const { user } = useContext(AuthContext); // Get the current user from context
+
 
   useEffect(() => {
     fetchNotes();
@@ -24,10 +33,10 @@ const NotesScreen = () => {
 
   // Function to fetch notes from the database
   const fetchNotes = async () => {
+    setIsLoading(true);
     try {
-      setLoading(true);
-      const fetchedNotes = await getNotes();
-      setNotes(fetchedNotes);
+      
+       const fetchedNotes = await getNotes(user.$id);
     } catch (err) {
       console.error("Error fetching notes:", err);
       setError("Failed to load notes. Please try again.");
@@ -35,26 +44,42 @@ const NotesScreen = () => {
       setLoading(false);
     }
   };
+   useEffect(() => {
+    if (user) {
+      fetchNotes();
+    }
+  }, [user]);
 
   // Add the new note to the state and avoid refetching
-  const handleNoteAdded = (newNote) => {
-    setNotes((currentNotes) => [newNote, ...currentNotes]);
+  const handleAddNote = async (text) => {
+    try {
+      // Pass the user ID when adding a note
+      const newNote = await addNote(text, user.$id);
+      setNotes([newNote, ...notes]);
+      setIsAddModalVisible(false);
+    } catch (error) {
+      console.error("Failed to add note:", error);
+    }
   };
-  const handleNoteDeleted = (noteId) => {
-    setNotes((currentNotes) =>
-      currentNotes.filter((note) => note.$id !== noteId)
-    );
+  const handleDeleteNote = async (noteId) => {
+    try {
+      await deleteNote(noteId);
+      setNotes(notes.filter((note) => note.$id !== noteId));
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+    }
   };
+
 
   // Handle note update by updating it in state
-  const handleNoteUpdated = (updatedNote) => {
-    setNotes((currentNotes) =>
-      currentNotes.map((note) =>
-        note.$id === updatedNote.$id ? updatedNote : note
-      )
-    );
+  const handleUpdateNote = async (noteId, newText) => {
+    try {
+      const updatedNote = await updateNote(noteId, newText);
+      setNotes(notes.map((note) => (note.$id === noteId ? updatedNote : note)));
+    } catch (error) {
+      console.error("Failed to update note:", error);
+    }
   };
-
   // Show loading indicator while fetching data
   if (loading && notes.length === 0) {
     return (
